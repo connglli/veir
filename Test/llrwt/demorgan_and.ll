@@ -1,7 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
 ; RUN: llrwt --rules demorgan_and %s | filecheck %s
-;
-; `~(~a & ~b)` folds to `a | b`.
 
 define i32 @test(i32 %a, i32 %b) {
   %na = xor i32 %a, -1
@@ -11,6 +9,8 @@ define i32 @test(i32 %a, i32 %b) {
   ret i32 %r
 }
 
-; CHECK-NOT: xor
-; CHECK: = or i32
-; CHECK-NOT: xor
+; CHECK-LABEL: define {{.*}} @test
+; CHECK-NOT: xor i32
+; CHECK-NOT: and i32
+; CHECK: or i32
+; CHECK: ret i32

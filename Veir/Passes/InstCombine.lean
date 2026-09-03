@@ -149,6 +149,44 @@ def andiZeroToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite andiZeroToZero_local rewriter op opInBounds
 
+/-- Rewrites `x & -1` to `x`. -/
+def andiAllOnesToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs) := matchAndi op ctx.raw
+    | return (ctx, none)
+  unless (matchConstantAllOnes rhs ctx.raw).isSome do
+    return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def andiAllOnesToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite andiAllOnesToX_local rewriter op opInBounds
+
+/-- Rewrites `x & ~x` to `0`. -/
+def andiNotSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs) := matchAndi op ctx.raw
+    | return (ctx, none)
+  let ok : Bool :=
+    match matchNot rhs ctx.raw with
+    | some v => decide (v = lhs)
+    | none =>
+      match matchNot lhs ctx.raw with
+      | some v => decide (v = rhs)
+      | none => false
+  unless ok do
+    return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def andiNotSelfToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite andiNotSelfToZero_local rewriter op opInBounds
+
 /-- Rewrites `x | 0` to `x`. -/
 def oriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
@@ -176,6 +214,99 @@ def oriSelfToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def oriSelfToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite oriSelfToX_local rewriter op opInBounds
+
+/-- Rewrites `x | -1` to `-1`. -/
+def oriAllOnesToAllOnes_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchOri op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  if cst.value ≠ -1 then
+    return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (-1) type))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def oriAllOnesToAllOnes (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite oriAllOnesToAllOnes_local rewriter op opInBounds
+
+/-- Rewrites `x + (0 - x)` to `0`. -/
+def addiNegSelfToZero_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchAddi op ctx.raw
+    | return (ctx, none)
+  let isNegOf (v w : ValuePtr) : Bool :=
+    match v with
+    | .opResult r =>
+      match matchSubi r.op ctx.raw with
+      | some (z, x, _) =>
+        match matchConstantIntVal z ctx.raw with
+        | some cst => cst.value == 0 && decide (x = w)
+        | none => false
+      | none => false
+    | _ => false
+  unless isNegOf rhs lhs || isNegOf lhs rhs do
+    return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk 0 type))
+  let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[lhs.getType! ctx.raw] #[]
+    #[] #[] cstProp none
+  some (ctx, some (#[newOp], #[newOp.getResult 0]))
+
+def addiNegSelfToZero (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite addiNegSelfToZero_local rewriter op opInBounds
+
+/-- Rewrites `x << 0` to `x`. -/
+def shlZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchShl op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  if cst.value ≠ 0 then
+    return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def shlZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite shlZeroToX_local rewriter op opInBounds
+
+/-- Rewrites `x >> 0` to `x`. -/
+def lshrZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchLshr op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  if cst.value ≠ 0 then
+    return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def lshrZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite lshrZeroToX_local rewriter op opInBounds
+
+/-- Rewrites `x >>a 0` to `x`. -/
+def ashrZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchAshr op ctx.raw
+    | return (ctx, none)
+  let some cst := matchConstantIntVal rhs ctx.raw
+    | return (ctx, none)
+  if cst.value ≠ 0 then
+    return (ctx, none)
+  some (ctx, some (#[], #[lhs]))
+
+def ashrZeroToX (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite ashrZeroToX_local rewriter op opInBounds
 
 /-- Rewrites `x ^ 0` to `x`. -/
 def xoriZeroToX_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
@@ -279,7 +410,7 @@ public structure VerifiedRule where
   pattern : LocalRewritePattern OpCode
   sound : pattern.Sound
 
-/-- Rule names in execution order. -/
+/-- Default `instcombine` pass rules, in execution order. -/
 public def orderedInstCombineRuleNames : List String :=
   ["mul_two", "mul_zero", "mul_one",
    "add_zero",
@@ -297,14 +428,21 @@ public def ruleRegistry : Std.HashMap String VerifiedRule :=
      { name := "mul_zero", description := "x * 0 => 0", pattern := mulIZeroToCst_local, sound := sorry },
      { name := "mul_one", description := "x * 1 => x", pattern := mulIOneToX_local, sound := sorry },
      { name := "add_zero", description := "x + 0 => x", pattern := addiZeroToX_local, sound := sorry },
+     { name := "add_neg_self", description := "x + (-x) => 0", pattern := addiNegSelfToZero_local, sound := sorry },
      { name := "sub_zero", description := "x - 0 => x", pattern := subiZeroToX_local, sound := sorry },
      { name := "sub_self", description := "x - x => 0", pattern := subiSelfToZero_local, sound := sorry },
      { name := "and_self", description := "x & x => x", pattern := andiSelfToX_local, sound := sorry },
      { name := "and_zero", description := "x & 0 => 0", pattern := andiZeroToZero_local, sound := sorry },
+     { name := "and_all_ones", description := "x & -1 => x", pattern := andiAllOnesToX_local, sound := sorry },
+     { name := "and_not_self", description := "x & ~x => 0", pattern := andiNotSelfToZero_local, sound := sorry },
      { name := "or_zero", description := "x | 0 => x", pattern := oriZeroToX_local, sound := sorry },
      { name := "or_self", description := "x | x => x", pattern := oriSelfToX_local, sound := sorry },
+     { name := "or_all_ones", description := "x | -1 => -1", pattern := oriAllOnesToAllOnes_local, sound := sorry },
      { name := "xor_zero", description := "x ^ 0 => x", pattern := xoriZeroToX_local, sound := sorry },
      { name := "xor_self", description := "x ^ x => 0", pattern := xoriSelfToZero_local, sound := sorry },
+     { name := "shl_zero", description := "x << 0 => x", pattern := shlZeroToX_local, sound := sorry },
+     { name := "lshr_zero", description := "x >> 0 => x", pattern := lshrZeroToX_local, sound := sorry },
+     { name := "ashr_zero", description := "x >>a 0 => x", pattern := ashrZeroToX_local, sound := sorry },
      { name := "not_not", description := "~~x => x", pattern := notNotToX_local, sound := sorry },
      { name := "demorgan_and", description := "~(~a & ~b) => a | b", pattern := deMorganAndToOr_local, sound := sorry },
      { name := "demorgan_or", description := "~(~a | ~b) => a & b", pattern := deMorganOrToAnd_local, sound := sorry }]

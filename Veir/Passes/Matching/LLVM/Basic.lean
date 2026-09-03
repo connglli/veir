@@ -70,6 +70,12 @@ def matchConstantZero (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePt
   guard (attr.value = 0)
   return val
 
+/-- Match a constant integer with value -1 (all ones), returning `val` itself. -/
+def matchConstantAllOnes (val : ValuePtr) (ctx : IRContext OpCode) : Option ValuePtr := do
+  let attr ← matchConstantIntVal val ctx
+  guard (attr.value = -1)
+  return val
+
 def matchAshr (op : OperationPtr) (ctx : IRContext OpCode) :
     Option (ValuePtr × ValuePtr × propertiesOf Llvm.ashr) := do
   let (op, properties) ← matchOp op ctx (Llvm.ashr) 2
