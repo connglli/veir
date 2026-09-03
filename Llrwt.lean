@@ -21,9 +21,9 @@ structure LlrwtArgs where
   debug : Bool := false
 
 def llrwtUsage : String :=
-  "Usage: llrwt --rules <r1,r2,...> <input.ll> [-o <output.ll>]\n" ++
+  "Usage: llrwt [--rules <r1,r2,...>] <input.ll> [-o <output.ll>]\n" ++
   "  <input.ll> may be '-' for stdin.\n" ++
-  "  --rules <csv>              Comma-separated rule IDs.\n" ++
+  "  --rules <csv>              Comma-separated rule IDs (default: all).\n" ++
   "  -o, --output <file>        Output path (default: stdout).\n" ++
   "  --list-rules               List rule IDs and exit.\n" ++
   "  --version                  Print version and exit.\n" ++
@@ -190,10 +190,8 @@ def main (args : List String) : IO Unit := do
     for (name, rule) in entries do
       IO.println s!"{name} - {rule.description}"
     return
-  if cfg.rules.isEmpty then
-    IO.eprintln s!"Error: missing '--rules <csv>'.\n{llrwtUsage}"
-    IO.Process.exit 2
-  for name in cfg.rules do
+  let rules := if cfg.rules.isEmpty then ruleRegistry.toList.map (·.1) else cfg.rules
+  for name in rules do
     unless ruleRegistry.contains name do
       IO.eprintln s!"Error: unknown rewrite rule: '{name}'."
       IO.Process.exit 2
@@ -207,7 +205,7 @@ def main (args : List String) : IO Unit := do
     if let some n := cfg.maxIterations then
       IO.eprintln s!"[llrwt] max-iterations: {n}"
   let (ctx, op) ← parseVeir genericMlir inputName cfg.allowUnregisteredDialect
-  let newCtx ← match runInstCombineRules cfg.rules ctx with
+  let newCtx ← match runInstCombineRules rules ctx with
     | .ok c => pure c
     | .error msg => IO.eprintln s!"Error: {msg}"; IO.Process.exit 1
   if let .error msg := newCtx.verify op then
