@@ -1,6 +1,13 @@
 name = "VeIR"
 version = "0.1.0"
-defaultTargets = ["veir-opt", "veir-interpret", "run-benchmarks", "veir2mir", "Veir"]
+defaultTargets = [
+  "veir-opt",
+  "veir-interpret",
+  "run-benchmarks",
+  "veir2mir",
+  "Veir",
+  "llrwt",
+]
 testRunner = "UnitTest"
 buildType = "release"
 moreLeanArgs = ["--tstack=400000"]
@@ -37,3 +44,7 @@ root = "VeirInterpret"
 [[lean_exe]]
 name = "veir2mir"
 root = "VeirToMIR"
+
+[[lean_exe]]
+name = "llrwt"
+root = "Llrwt"
