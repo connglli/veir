@@ -315,6 +315,21 @@ public def allInstCombinePatterns : Array (RewritePattern OpCode) :=
   orderedInstCombineRuleNames.toArray.filterMap fun name =>
     (ruleRegistry.get? name).map fun rule => RewritePattern.fromLocalRewrite rule.pattern
 
+/-- Run selected rules. -/
+public def runInstCombineRules (ruleNames : List String) (ctx : WfIRContext OpCode) :
+    Except String (WfIRContext OpCode) := do
+  let mut selected := #[]
+  for name in ruleNames do
+    match ruleRegistry.get? name with
+    | some rule => selected := selected.push (RewritePattern.fromLocalRewrite rule.pattern)
+    | none => throw s!"Unknown rewrite rule: '{name}'."
+  if selected.isEmpty then
+    return ctx
+  let pattern := RewritePattern.GreedyRewritePattern selected
+  match RewritePattern.applyInContext pattern ctx with
+  | some newCtx => pure newCtx
+  | none => throw "Error while executing pattern rewriter worklist"
+
 def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
   let pattern := RewritePattern.GreedyRewritePattern allInstCombinePatterns
