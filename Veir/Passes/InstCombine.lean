@@ -25,8 +25,16 @@ def mulITwoToAddi_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     | return (ctx, none)
   if cst.value ≠ 2 then
     return (ctx, none)
+  let .integerType type := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  if type.bitwidth ≤ 1 then
+    return (ctx, none)
+  let addProps : NswNuwProperties := {
+    nsw := properties.nsw && 2 < type.bitwidth
+    nuw := properties.nuw
+  }
   let (ctx, newOp) ← WfRewriter.createOp! ctx Llvm.add #[lhs.getType! ctx.raw] #[lhs, lhs]
-    #[] #[] properties none
+    #[] #[] addProps none
   some (ctx, some (#[newOp], #[newOp.getResult 0]))
 
 def mulITwoToAddi (rewriter : PatternRewriter OpCode) (op : OperationPtr)
