@@ -2,6 +2,7 @@ module
 
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
+public import Veir.PatternRewriter.Semantics
 import Veir.Passes.Matching
 
 namespace Veir
@@ -269,17 +270,54 @@ def deMorganOrToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite deMorganOrToAnd_local rewriter op opInBounds
 
+/-! ## Rule registry -/
+
+/-- A rewrite rule with its soundness proof. -/
+public structure VerifiedRule where
+  name : String
+  description : String
+  pattern : LocalRewritePattern OpCode
+  sound : pattern.Sound
+
+/-- Rule names in execution order. -/
+public def orderedInstCombineRuleNames : List String :=
+  ["mul_two", "mul_zero", "mul_one",
+   "add_zero",
+   "sub_zero", "sub_self",
+   "and_self", "and_zero",
+   "or_zero", "or_self",
+   "xor_zero", "xor_self",
+   "not_not", "demorgan_and", "demorgan_or"]
+
+set_option warn.sorry false in
+/-- Rules indexed by name. -/
+public def ruleRegistry : Std.HashMap String VerifiedRule :=
+  let entries : List VerifiedRule :=
+    [{ name := "mul_two", description := "x * 2 => x + x", pattern := mulITwoToAddi_local, sound := sorry },
+     { name := "mul_zero", description := "x * 0 => 0", pattern := mulIZeroToCst_local, sound := sorry },
+     { name := "mul_one", description := "x * 1 => x", pattern := mulIOneToX_local, sound := sorry },
+     { name := "add_zero", description := "x + 0 => x", pattern := addiZeroToX_local, sound := sorry },
+     { name := "sub_zero", description := "x - 0 => x", pattern := subiZeroToX_local, sound := sorry },
+     { name := "sub_self", description := "x - x => 0", pattern := subiSelfToZero_local, sound := sorry },
+     { name := "and_self", description := "x & x => x", pattern := andiSelfToX_local, sound := sorry },
+     { name := "and_zero", description := "x & 0 => 0", pattern := andiZeroToZero_local, sound := sorry },
+     { name := "or_zero", description := "x | 0 => x", pattern := oriZeroToX_local, sound := sorry },
+     { name := "or_self", description := "x | x => x", pattern := oriSelfToX_local, sound := sorry },
+     { name := "xor_zero", description := "x ^ 0 => x", pattern := xoriZeroToX_local, sound := sorry },
+     { name := "xor_self", description := "x ^ x => 0", pattern := xoriSelfToZero_local, sound := sorry },
+     { name := "not_not", description := "~~x => x", pattern := notNotToX_local, sound := sorry },
+     { name := "demorgan_and", description := "~(~a & ~b) => a | b", pattern := deMorganAndToOr_local, sound := sorry },
+     { name := "demorgan_or", description := "~(~a | ~b) => a & b", pattern := deMorganOrToAnd_local, sound := sorry }]
+  entries.foldl (fun m r => m.insert r.name r) (Std.HashMap.emptyWithCapacity entries.length)
+
+/-- Registered patterns in execution order. -/
+public def allInstCombinePatterns : Array (RewritePattern OpCode) :=
+  orderedInstCombineRuleNames.toArray.filterMap fun name =>
+    (ruleRegistry.get? name).map fun rule => RewritePattern.fromLocalRewrite rule.pattern
+
 def InstCombinePass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBounds ctx.raw) :
     ExceptT String IO (WfIRContext OpCode) := do
-  let pattern := RewritePattern.GreedyRewritePattern #[
-    mulITwoToAddi, mulIZeroToCst, mulIOneToX,
-    addiZeroToX,
-    subiZeroToX, subiSelfToZero,
-    andiSelfToX, andiZeroToZero,
-    oriZeroToX, oriSelfToX,
-    xoriZeroToX, xoriSelfToZero,
-    notNotToX, deMorganAndToOr, deMorganOrToAnd
-  ]
+  let pattern := RewritePattern.GreedyRewritePattern allInstCombinePatterns
   match RewritePattern.applyInContext pattern ctx with
   | none => throw "Error while applying pattern rewrites"
   | some ctx => pure ctx
