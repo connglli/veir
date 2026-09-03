@@ -1,5 +1,6 @@
 ; RUN: llrwt --list-rules | filecheck %s
 
+; CHECK: add_mul_factor
 ; CHECK: add_neg_self
 ; CHECK: add_zero
 ; CHECK: and_all_ones
@@ -11,14 +12,17 @@
 ; CHECK: demorgan_or
 ; CHECK: lshr_zero
 ; CHECK: mul_one
+; CHECK: mul_pow2_shl
 ; CHECK: mul_two
 ; CHECK: mul_zero
 ; CHECK: not_not
 ; CHECK: or_all_ones
 ; CHECK: or_self
 ; CHECK: or_zero
+; CHECK: sdiv_mul_to_srem
 ; CHECK: shl_zero
 ; CHECK: sub_self
 ; CHECK: sub_zero
+; CHECK: sub_zext
 ; CHECK: xor_self
 ; CHECK: xor_zero

@@ -85,4 +85,7 @@ define i32 @test_chained(i32 %x) {
   ret i32 %s2
 }
 
-; CHECK: Transformation seems to be correct!
+; CHECK: 16 correct transformations
+; CHECK: 0 incorrect transformations
+; CHECK: 0 failed-to-prove transformations
+; CHECK: 0 Alive2 errors

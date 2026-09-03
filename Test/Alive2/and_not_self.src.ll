@@ -70,4 +70,7 @@ define i1 @test_i1_commuted(i1 %x) {
   ret i1 %r
 }
 
-; CHECK: Transformation seems to be correct!
+; CHECK: 11 correct transformations
+; CHECK: 0 incorrect transformations
+; CHECK: 0 failed-to-prove transformations
+; CHECK: 0 Alive2 errors

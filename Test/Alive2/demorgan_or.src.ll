@@ -92,4 +92,7 @@ define i1 @test_i1_disjoint(i1 %a, i1 %b) {
   ret i1 %r
 }
 
-; CHECK: Transformation seems to be correct!
+; CHECK: 11 correct transformations
+; CHECK: 0 incorrect transformations
+; CHECK: 0 failed-to-prove transformations
+; CHECK: 0 Alive2 errors

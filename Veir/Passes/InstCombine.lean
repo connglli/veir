@@ -409,6 +409,202 @@ def deMorganOrToAnd (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite deMorganOrToAnd_local rewriter op opInBounds
 
+/-! ## Additional arithmetic rewrites -/
+
+/-- True when `n` is a positive power of two. -/
+private def natIsPow2 (n : Nat) : Bool :=
+  n != 0 && 2 ^ (Nat.log2 n) == n
+
+/-- Wrap `v` into the signed range of an `w`-bit integer type for constant creation. -/
+private def wrapToBitwidth (v : Int) (w : Nat) : Int :=
+  if w == 0 then 0
+  else
+    let m : Int := Int.ofNat (2 ^ w)
+    let r := v % m
+    let rPos := if r < 0 then r + m else r
+    let half : Int := Int.ofNat (2 ^ (w - 1))
+    if rPos >= half then rPos - m else rPos
+
+/-- Rewrites `x - zext i1 b` to `x + sext i1 b`. -/
+def subZextToAddSext_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, zextVal, subProps) := matchSubi op ctx.raw
+    | return (ctx, none)
+  let .opResult zextRes := zextVal
+    | return (ctx, none)
+  let some (b, _) := matchZext zextRes.op ctx.raw
+    | return (ctx, none)
+  let .integerType destTy := (x.getType! ctx.raw).val
+    | return (ctx, none)
+  if destTy.bitwidth ≤ 1 then
+    return (ctx, none)
+  let .integerType srcTy := (b.getType! ctx.raw).val
+    | return (ctx, none)
+  if srcTy.bitwidth != 1 then
+    return (ctx, none)
+  let destType := x.getType! ctx.raw
+  let (ctx, sextOp) ← WfRewriter.createOp! ctx Llvm.sext #[destType] #[b]
+    #[] #[] () none
+  let addProps : NswNuwProperties := { nsw := subProps.nsw, nuw := false }
+  let (ctx, addOp) ← WfRewriter.createOp! ctx Llvm.add #[destType]
+    #[x, sextOp.getResult 0] #[] #[] addProps none
+  some (ctx, some (#[sextOp, addOp], #[addOp.getResult 0]))
+
+def subZextToAddSext (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite subZextToAddSext_local rewriter op opInBounds
+
+/-- Rewrites `x * 2^k` to `x << k`. -/
+def mulPow2ToShl_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, mulProps) := matchMuli op ctx.raw
+    | return (ctx, none)
+  let (x, cst) : ValuePtr × IntegerAttr ←
+    match matchConstantIntVal rhs ctx.raw with
+    | some c => pure (lhs, c)
+    | none =>
+      match matchConstantIntVal lhs ctx.raw with
+      | some c => pure (rhs, c)
+      | none => return (ctx, none)
+  if cst.value ≤ 1 then
+    return (ctx, none)
+  let n := cst.value.toNat
+  unless natIsPow2 n do
+    return (ctx, none)
+  let k := Nat.log2 n
+  let .integerType ty := (x.getType! ctx.raw).val
+    | return (ctx, none)
+  if k >= ty.bitwidth then
+    return (ctx, none)
+  let destType := x.getType! ctx.raw
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk (Int.ofNat k) ty))
+  let (ctx, kOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[destType] #[]
+    #[] #[] cstProp none
+  let shlProps : NswNuwProperties := { nsw := mulProps.nsw, nuw := mulProps.nuw }
+  let (ctx, shlOp) ← WfRewriter.createOp! ctx Llvm.shl #[destType]
+    #[x, kOp.getResult 0] #[] #[] shlProps none
+  some (ctx, some (#[kOp, shlOp], #[shlOp.getResult 0]))
+
+def mulPow2ToShl (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite mulPow2ToShl_local rewriter op opInBounds
+
+/-- Extract `(base, coeff)` with `v = base * coeff`: `mul` gives its constant,
+`shl` gives `2^k`, anything else gives `(v, 1)`. The flag reports `mul`/`shl`. -/
+private def extractMulBaseCoeff (v : ValuePtr) (ctx : IRContext OpCode) :
+    (ValuePtr × Int × Bool) :=
+  match v with
+  | .opResult r =>
+    match matchMuli r.op ctx with
+    | some (a, b, _) =>
+      match matchConstantIntVal b ctx with
+      | some c => (a, c.value, true)
+      | none =>
+        match matchConstantIntVal a ctx with
+        | some c => (b, c.value, true)
+        | none =>
+          match matchShl r.op ctx with
+          | some (a', kVal, _) =>
+            match matchConstantIntVal kVal ctx with
+            | some k =>
+              if k.value < 0 then (v, 1, false)
+              else
+                match (a'.getType! ctx).val with
+                | .integerType ty =>
+                  if k.value.toNat >= ty.bitwidth then (v, 1, false)
+                  else (a', Int.ofNat (2 ^ k.value.toNat), true)
+                | _ => (v, 1, false)
+            | none => (v, 1, false)
+          | none => (v, 1, false)
+    | none =>
+      match matchShl r.op ctx with
+      | some (a, kVal, _) =>
+        match matchConstantIntVal kVal ctx with
+        | some k =>
+          if k.value < 0 then (v, 1, false)
+          else
+            match (a.getType! ctx).val with
+            | .integerType ty =>
+              if k.value.toNat >= ty.bitwidth then (v, 1, false)
+              else (a, Int.ofNat (2 ^ k.value.toNat), true)
+            | _ => (v, 1, false)
+        | none => (v, 1, false)
+      | none => (v, 1, false)
+  | _ => (v, 1, false)
+
+/-- Rewrites `(x*C1) + (x*C2)` to `x*(C1+C2)`, treating `x<<k` as `x*2^k`. -/
+def addMulFactor_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (lhs, rhs, _) := matchAddi op ctx.raw
+    | return (ctx, none)
+  let (baseL, cL, isMulL) := extractMulBaseCoeff lhs ctx.raw
+  let (baseR, cR, isMulR) := extractMulBaseCoeff rhs ctx.raw
+  unless isMulL || isMulR do
+    return (ctx, none)
+  if baseL != baseR then
+    return (ctx, none)
+  if cL == 1 && cR == 1 then
+    return (ctx, none)
+  let .integerType ty := (lhs.getType! ctx.raw).val
+    | return (ctx, none)
+  let sum := wrapToBitwidth (cL + cR) ty.bitwidth
+  let destType := lhs.getType! ctx.raw
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk sum ty))
+  let (ctx, sumOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[destType] #[]
+    #[] #[] cstProp none
+  let mulProps : NswNuwProperties := { nsw := false, nuw := false }
+  let (ctx, mulOp) ← WfRewriter.createOp! ctx Llvm.mul #[destType]
+    #[baseL, sumOp.getResult 0] #[] #[] mulProps none
+  some (ctx, some (#[sumOp, mulOp], #[mulOp.getResult 0]))
+
+def addMulFactor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite addMulFactor_local rewriter op opInBounds
+
+/-- Rewrites `x - ((x sdiv C)*C + y)` to `(x srem C) - y` (either `add` order). -/
+def sdivMulToSrem_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (x, addVal, subProps) := matchSubi op ctx.raw
+    | return (ctx, none)
+  let .opResult addRes := addVal
+    | return (ctx, none)
+  let some (addL, addR, _) := matchAddi addRes.op ctx.raw
+    | return (ctx, none)
+  let tryOrder (mulCand y : ValuePtr) :
+      Option (ValuePtr × ValuePtr × IntegerAttr) := do
+    let .opResult mulRes := mulCand | none
+    let some (sdivVal, c2Val, _) := matchMuli mulRes.op ctx.raw | none
+    let sdivCand : ValuePtr :=
+      if (matchConstantIntVal c2Val ctx.raw).isSome then sdivVal else c2Val
+    let cVal : ValuePtr :=
+      if (matchConstantIntVal c2Val ctx.raw).isSome then c2Val else sdivVal
+    let some c2 := matchConstantIntVal cVal ctx.raw | none
+    guard (c2.value != 0 && c2.value != -1)
+    let .opResult sdivRes := sdivCand | none
+    let some (x2, c1Val, _) := matchSdiv sdivRes.op ctx.raw | none
+    let some c1 := matchConstantIntVal c1Val ctx.raw | none
+    guard (c1.value == c2.value)
+    guard (x2 == x)
+    some (x2, y, c1)
+  let some (x2, y, c1) :=
+      tryOrder addL addR <|> tryOrder addR addL
+    | return (ctx, none)
+  let .integerType ty := (x.getType! ctx.raw).val
+    | return (ctx, none)
+  let destType := x.getType! ctx.raw
+  let cstProp := LLVMConstantProperties.mk (.integer (IntegerAttr.mk c1.value ty))
+  let (ctx, cOp) ← WfRewriter.createOp! ctx Llvm.mlir__constant #[destType] #[]
+    #[] #[] cstProp none
+  let (ctx, sremOp) ← WfRewriter.createOp! ctx Llvm.srem #[destType]
+    #[x2, cOp.getResult 0] #[] #[] () none
+  let (ctx, subOp) ← WfRewriter.createOp! ctx Llvm.sub #[destType]
+    #[sremOp.getResult 0, y] #[] #[] subProps none
+  some (ctx, some (#[cOp, sremOp, subOp], #[subOp.getResult 0]))
+
+def sdivMulToSrem (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite sdivMulToSrem_local rewriter op opInBounds
+
 /-! ## Rule registry -/
 
 /-- A rewrite rule with its soundness proof. -/
@@ -453,7 +649,11 @@ public def ruleRegistry : Std.HashMap String VerifiedRule :=
      { name := "ashr_zero", description := "x >>a 0 => x", pattern := ashrZeroToX_local, sound := sorry },
      { name := "not_not", description := "~~x => x", pattern := notNotToX_local, sound := sorry },
      { name := "demorgan_and", description := "~(~a & ~b) => a | b", pattern := deMorganAndToOr_local, sound := sorry },
-     { name := "demorgan_or", description := "~(~a | ~b) => a & b", pattern := deMorganOrToAnd_local, sound := sorry }]
+     { name := "demorgan_or", description := "~(~a | ~b) => a & b", pattern := deMorganOrToAnd_local, sound := sorry },
+     { name := "sub_zext", description := "x - zext i1 b => x + sext i1 b", pattern := subZextToAddSext_local, sound := sorry },
+     { name := "mul_pow2_shl", description := "x * 2^k => x << k", pattern := mulPow2ToShl_local, sound := sorry },
+     { name := "add_mul_factor", description := "(x*C1) + (x*C2) => x*(C1+C2)", pattern := addMulFactor_local, sound := sorry },
+     { name := "sdiv_mul_to_srem", description := "x - ((x sdiv C)*C + y) => (x srem C) - y", pattern := sdivMulToSrem_local, sound := sorry }]
   entries.foldl (fun m r => m.insert r.name r) (Std.HashMap.emptyWithCapacity entries.length)
 
 /-- Registered patterns in execution order. -/
