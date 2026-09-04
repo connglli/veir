@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules demorgan_and %s | filecheck %s
+; RUN: llrwt --rules de-morgan-and-to-or %s | filecheck %s
 
 define i32 @test(i32 %a, i32 %b) {
   %na = xor i32 %a, -1

@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules sub_zext %s -o %t.ll
+; RUN: llrwt --rules subi-zext-to-add-sext %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; sub_zext
+; subi-zext-to-add-sext
 
 define i64 @test_i64(i64 %x, i1 %b) {
   %z = zext i1 %b to i64

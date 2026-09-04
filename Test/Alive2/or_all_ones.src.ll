@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules or_all_ones %s -o %t.ll
+; RUN: llrwt --rules ori-all-ones-to-all-ones %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; or_all_ones
+; ori-all-ones-to-all-ones
 
 define i32 @test_i32(i32 %x) {
   %r = or i32 %x, -1

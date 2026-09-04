@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_pow2_shl %s | filecheck %s
+; RUN: llrwt --rules muli-pow2-to-shl %s | filecheck %s
 
 define i32 @test4(i32 %x) {
   %r = mul i32 %x, 4

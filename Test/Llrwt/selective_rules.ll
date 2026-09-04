@@ -1,7 +1,7 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules add_zero %s | filecheck %s
+; RUN: llrwt --rules addi-zero-to-x %s | filecheck %s
 ;
-; Only `add_zero` runs: `add x, 0` folds away, `mul x, 2` stays.
+; Only `addi-zero-to-x` runs: `add x, 0` folds away, `mul x, 2` stays.
 
 define i32 @test(i32 %a) {
   %add = add i32 %a, 0

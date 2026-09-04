@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_zero %s -o %t.ll
+; RUN: llrwt --rules muli-zero-to-cst %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; mul_zero
+; muli-zero-to-cst
 
 define i32 @test_i32(i32 %x) {
   %r = mul i32 %x, 0

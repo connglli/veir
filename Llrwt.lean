@@ -1,7 +1,7 @@
 import Veir.Parser.MlirParser
 import Veir.Printer
 import Veir.Panic
-import Veir.Passes.InstCombine
+import Veir.Passes.ApplyPatterns
 
 open Veir.Parser
 open Veir.Parser.ParserError
@@ -23,7 +23,8 @@ structure LlrwtArgs where
 def llrwtUsage : String :=
   "Usage: llrwt [--rules <r1,r2,...>] <input.ll> [-o <output.ll>]\n" ++
   "  <input.ll> may be '-' for stdin.\n" ++
-  "  --rules <csv>              Comma-separated rule IDs (default: all).\n" ++
+  "  --rules <csv>              Comma-separated rule IDs (default: all; see --list-rules).\n" ++
+  "                             Rule IDs match the 'apply-patterns' pass options.\n" ++
   "  -o, --output <file>        Output path (default: stdout).\n" ++
   "  --list-rules               List rule IDs and exit.\n" ++
   "  --version                  Print version and exit.\n" ++
@@ -186,13 +187,14 @@ def main (args : List String) : IO Unit := do
     IO.println "llrwt 0.1.0 (VeIR 0.1.0)"
     return
   if cfg.listRules then
-    let entries := ruleRegistry.toList.toArray.qsort (·.1 < ·.1)
-    for (name, rule) in entries do
-      IO.println s!"{name} - {rule.description}"
+    let entries := applyPatterns.toArray.qsort (·.name < ·.name)
+    for entry in entries do
+      IO.println s!"{entry.name} - {entry.description}"
     return
-  let rules := if cfg.rules.isEmpty then ruleRegistry.toList.map (·.1) else cfg.rules
+  let allNames := applyPatterns.map (·.name)
+  let rules := if cfg.rules.isEmpty then allNames else cfg.rules
   for name in rules do
-    unless ruleRegistry.contains name do
+    unless allNames.contains name do
       IO.eprintln s!"Error: unknown rewrite rule: '{name}'."
       IO.Process.exit 2
   let inputText ← readInputText cfg.input
@@ -205,9 +207,13 @@ def main (args : List String) : IO Unit := do
     if let some n := cfg.maxIterations then
       IO.eprintln s!"[llrwt] max-iterations: {n}"
   let (ctx, op) ← parseVeir genericMlir inputName cfg.allowUnregisteredDialect
-  let newCtx ← match runInstCombineRules rules ctx with
-    | .ok c => pure c
-    | .error msg => IO.eprintln s!"Error: {msg}"; IO.Process.exit 1
+  let mut selected := #[]
+  for entry in applyPatterns do
+    if rules.contains entry.name then
+      selected := selected.push entry.pattern
+  let newCtx ← match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern selected) ctx with
+    | some c => pure c
+    | none => IO.eprintln s!"Error: Error while applying pattern rewrites"; IO.Process.exit 1
   if let .error msg := newCtx.verify op then
     IO.eprintln s!"Error verifying rewritten program: {msg}"
     IO.Process.exit 1

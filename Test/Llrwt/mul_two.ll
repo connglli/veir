@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_two %s | filecheck %s
+; RUN: llrwt --rules muli-two-to-addi %s | filecheck %s
 
 define i32 @test(i32 %a) {
   %r = mul i32 %a, 2

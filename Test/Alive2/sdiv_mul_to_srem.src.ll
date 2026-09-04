@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules sdiv_mul_to_srem %s -o %t.ll
+; RUN: llrwt --rules subi-sdiv-mul-to-srem %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; sdiv_mul_to_srem
+; subi-sdiv-mul-to-srem
 
 define i64 @test_i64(i64 %x, i64 %y) {
   %q = sdiv i64 %x, 4

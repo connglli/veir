@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules sub_zext %s | filecheck %s
+; RUN: llrwt --rules subi-zext-to-add-sext %s | filecheck %s
 
 define i64 @test(i64 %x, i1 %b) {
   %z = zext i1 %b to i64

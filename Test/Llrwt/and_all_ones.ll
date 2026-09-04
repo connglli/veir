@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules and_all_ones %s | filecheck %s
+; RUN: llrwt --rules andi-all-ones-to-x %s | filecheck %s
 
 define i32 @test(i32 %a) {
   %r = and i32 %a, -1

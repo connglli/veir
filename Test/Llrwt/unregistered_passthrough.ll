@@ -1,6 +1,6 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules add_zero,demorgan_and %s | filecheck %s
-; RUN: llrwt --rules add_zero,demorgan_and %s -o %t.out && filecheck %s < %t.out
+; RUN: llrwt --rules addi-zero-to-x,de-morgan-and-to-or %s | filecheck %s
+; RUN: llrwt --rules addi-zero-to-x,de-morgan-and-to-or %s -o %t.out && filecheck %s < %t.out
 ;
 ; Unmodeled constructs pass through unchanged under any rule selection.
 

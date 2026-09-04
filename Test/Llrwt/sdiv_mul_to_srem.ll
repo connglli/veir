@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules sdiv_mul_to_srem %s | filecheck %s
+; RUN: llrwt --rules subi-sdiv-mul-to-srem %s | filecheck %s
 
 define i64 @test(i64 %x, i64 %y) {
   %q = sdiv i64 %x, 4

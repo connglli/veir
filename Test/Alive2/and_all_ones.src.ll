@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules and_all_ones %s -o %t.ll
+; RUN: llrwt --rules andi-all-ones-to-x %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; and_all_ones
+; andi-all-ones-to-x
 
 define i32 @test_i32(i32 %x) {
   %r = and i32 %x, -1

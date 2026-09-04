@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_pow2_shl %s -o %t.ll
+; RUN: llrwt --rules muli-pow2-to-shl %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; mul_pow2_shl
+; muli-pow2-to-shl
 
 define i32 @test_i32_4(i32 %x) {
   %r = mul i32 %x, 4

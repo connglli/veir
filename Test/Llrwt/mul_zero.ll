@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_zero %s | filecheck %s
+; RUN: llrwt --rules muli-zero-to-cst %s | filecheck %s
 
 define i32 @test(i32 %a) {
   %r = mul i32 %a, 0

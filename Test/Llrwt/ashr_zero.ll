@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules ashr_zero %s | filecheck %s
+; RUN: llrwt --rules ashr-zero-to-x %s | filecheck %s
 
 define i32 @test(i32 %a) {
   %r = ashr i32 %a, 0

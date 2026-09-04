@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules not_not %s -o %t.ll
+; RUN: llrwt --rules not-not-to-x %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; not_not
+; not-not-to-x
 
 define i32 @test_i32(i32 %x) {
   %n1 = xor i32 %x, -1

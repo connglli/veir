@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules xor_self %s -o %t.ll
+; RUN: llrwt --rules xori-self-to-zero %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; xor_self
+; xori-self-to-zero
 
 define i32 @test_i32(i32 %x) {
   %r = xor i32 %x, %x

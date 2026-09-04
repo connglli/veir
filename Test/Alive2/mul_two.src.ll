@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules mul_two %s -o %t.ll
+; RUN: llrwt --rules muli-two-to-addi %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; mul_two
+; muli-two-to-addi
 
 define i32 @test_i32(i32 %x) {
   %r = mul i32 %x, 2

@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules demorgan_or %s -o %t.ll
+; RUN: llrwt --rules de-morgan-or-to-and %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; demorgan_or
+; de-morgan-or-to-and
 
 define i32 @test_i32(i32 %a, i32 %b) {
   %na = xor i32 %a, -1

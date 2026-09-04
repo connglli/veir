@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules xor_self %s | filecheck %s
+; RUN: llrwt --rules xori-self-to-zero %s | filecheck %s
 
 define i32 @test(i32 %a) {
   %r = xor i32 %a, %a

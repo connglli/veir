@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules add_neg_self %s -o %t.ll
+; RUN: llrwt --rules addi-neg-self-to-zero %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; add_neg_self
+; addi-neg-self-to-zero
 
 define i32 @test_i32(i32 %x) {
   %neg = sub i32 0, %x

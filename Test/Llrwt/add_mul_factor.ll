@@ -1,5 +1,5 @@
 ; REQUIRES: mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules add_mul_factor %s | filecheck %s
+; RUN: llrwt --rules addi-mul-factor %s | filecheck %s
 
 define i64 @test_shl(i64 %x) {
   %a = mul i64 %x, 9

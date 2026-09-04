@@ -1,8 +1,8 @@
 ; REQUIRES: alive-tv, mlir-translate, mlir-opt, mlir-min-22
-; RUN: llrwt --rules shl_zero %s -o %t.ll
+; RUN: llrwt --rules shl-zero-to-x %s -o %t.ll
 ; RUN: alive-tv --disable-undef-input %s %t.ll | filecheck %s
 
-; shl_zero
+; shl-zero-to-x
 
 define i32 @test_i32(i32 %x) {
   %r = shl i32 %x, 0
