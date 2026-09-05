@@ -223,6 +223,7 @@ def main (args : List String) : IO Unit := do
   for entry in applyPatterns do
     if rules.contains entry.name then
       selected := selected.push entry.pattern
+  let (printedBefore, _) ← IO.FS.withIsolatedStreams (Veir.Printer.printOperation ctx.raw op) false
   let newCtx ← match RewritePattern.applyInContext (RewritePattern.GreedyRewritePattern selected) ctx with
     | some c => pure c
     | none => IO.eprintln s!"Error: Error while applying pattern rewrites"; IO.Process.exit 1
@@ -230,6 +231,13 @@ def main (args : List String) : IO Unit := do
     IO.eprintln s!"Error verifying rewritten program: {msg}"
     IO.Process.exit 1
   let (printed, _) ← IO.FS.withIsolatedStreams (Veir.Printer.printOperation newCtx.raw op) false
+  if printed == printedBefore then
+    match cfg.output with
+    | none => IO.print inputText
+    | some path => try IO.FS.writeFile path inputText catch e =>
+        IO.eprintln s!"Error writing file '{path}': {e}"
+        IO.Process.exit 1
+    return
   if cfg.debug then
     IO.eprintln s!"[llrwt] rewritten MLIR:\n{printed}"
   let llvmOut ← cleanLlvmOutput inputText <$> runMlirTool cfg.mlirTranslate #["--mlir-to-llvmir"] printed "--mlir-translate"
