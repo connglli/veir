@@ -161,13 +161,25 @@ private def refersTo (line id : String) : Bool :=
     | [] => true
     | c :: _ => !c.isDigit
 
-/-- Drop exporter-default header lines and orphaned metadata. -/
-def cleanLlvmOutput (text : String) : String := Id.run do
+/-- True if any line of `input` starts with `pfx` (ignoring leading whitespace). -/
+private def inputHasHeader (input : String) (pfx : String) : Bool :=
+  (input.splitOn "\n").any fun l => ((l.trimAscii.toString).startsWith pfx)
+
+/-- Drop exporter-default header lines absent from the input, plus orphaned metadata. -/
+def cleanLlvmOutput (input output : String) : String := Id.run do
+  let hasModuleId := inputHasHeader input "; ModuleID ="
+  let hasSourceFile := inputHasHeader input "source_filename ="
+  let hasModuleFlags := inputHasHeader input "!llvm.module.flags ="
+  let hasDatalayout := inputHasHeader input "target datalayout"
+  let hasTriple := inputHasHeader input "target triple"
   let isHeader (l : String) : Bool :=
     let t := l.trimAscii.toString
-    t.startsWith "; ModuleID =" || t.startsWith "source_filename =" ||
-      t.startsWith "!llvm.module.flags ="
-  let mut kept := (text.splitOn "\n").filter (!isHeader ·)
+    (t.startsWith "; ModuleID =" && !hasModuleId) ||
+      (t.startsWith "source_filename =" && !hasSourceFile) ||
+      (t.startsWith "!llvm.module.flags =" && !hasModuleFlags) ||
+      (t.startsWith "target datalayout" && !hasDatalayout) ||
+      (t.startsWith "target triple" && !hasTriple)
+  let mut kept := (output.splitOn "\n").filter (!isHeader ·)
   let mut done := false
   while !done do
     let next := kept.filter fun l =>
@@ -220,7 +232,7 @@ def main (args : List String) : IO Unit := do
   let (printed, _) ← IO.FS.withIsolatedStreams (Veir.Printer.printOperation newCtx.raw op) false
   if cfg.debug then
     IO.eprintln s!"[llrwt] rewritten MLIR:\n{printed}"
-  let llvmOut ← cleanLlvmOutput <$> runMlirTool cfg.mlirTranslate #["--mlir-to-llvmir"] printed "--mlir-translate"
+  let llvmOut ← cleanLlvmOutput inputText <$> runMlirTool cfg.mlirTranslate #["--mlir-to-llvmir"] printed "--mlir-translate"
   match cfg.output with
   | none => IO.print llvmOut
   | some path => try IO.FS.writeFile path llvmOut catch e =>
