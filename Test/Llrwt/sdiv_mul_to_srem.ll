@@ -78,7 +78,7 @@ define i64 @test_exact(i64 %x, i64 %y) {
 ; CHECK: srem i64 {{.*}}, 4
 ; CHECK: ret i64
 
-define i64 @test_flags_preserve(i64 %x, i64 %y) {
+define i64 @test_flags_dropped(i64 %x, i64 %y) {
   %q = sdiv i64 %x, 4
   %m = mul nsw nuw i64 %q, 4
   %a = add nsw nuw i64 %m, %y
@@ -86,9 +86,11 @@ define i64 @test_flags_preserve(i64 %x, i64 %y) {
   ret i64 %r
 }
 
-; CHECK-LABEL: define {{.*}} @test_flags_preserve(
+; CHECK-LABEL: define {{.*}} @test_flags_dropped(
 ; CHECK: srem i64 {{.*}}, 4
-; CHECK: sub nuw nsw i64
+; CHECK-NOT: nsw
+; CHECK-NOT: nuw
+; CHECK: sub i64
 ; CHECK: ret i64
 
 define i64 @test_lhs_const(i64 %x, i64 %y) {

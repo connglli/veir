@@ -560,10 +560,14 @@ def addMulFactor (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite addMulFactor_local rewriter op opInBounds
 
-/-- Rewrites `x - ((x sdiv C)*C + y)` to `(x srem C) - y` (either `add` order). -/
+/-- Rewrites `x - ((x sdiv C)*C + y)` to `(x srem C) - y` (either `add` order).
+Note: the new `sub` drops the source `nsw`/`nuw` flags. Keeping them is
+unsound: intermediate wrapping can absorb an overflow in the source while the
+target overflows (e.g. `sub nsw i2 %x, %a` with `%a` wrapped), making the
+target more poisonous than the source. -/
 def sdivMulToSrem_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
-  let some (x, addVal, subProps) := matchSubi op ctx.raw
+  let some (x, addVal, _) := matchSubi op ctx.raw
     | return (ctx, none)
   let .opResult addRes := addVal
     | return (ctx, none)
@@ -596,6 +600,7 @@ def sdivMulToSrem_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
     #[] #[] cstProp none
   let (ctx, sremOp) ← WfRewriter.createOp! ctx Llvm.srem #[destType]
     #[x2, cOp.getResult 0] #[] #[] () none
+  let subProps : NswNuwProperties := { nsw := false, nuw := false }
   let (ctx, subOp) ← WfRewriter.createOp! ctx Llvm.sub #[destType]
     #[sremOp.getResult 0, y] #[] #[] subProps none
   some (ctx, some (#[cOp, sremOp, subOp], #[subOp.getResult 0]))
