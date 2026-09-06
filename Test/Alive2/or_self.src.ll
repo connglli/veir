@@ -65,7 +65,18 @@ define i32 @test_chained(i32 %x) {
   ret i32 %o2
 }
 
-; CHECK: 12 correct transformations
+define i64 @test_i64_nondisjoint(i64 %x) {
+  %r = or i64 %x, %x
+  ret i64 %r
+}
+
+define i3 @test_i3_nondisjoint(i3 %x) {
+  %r = or i3 %x, %x
+  ret i3 %r
+}
+
+
+; CHECK: 14 correct transformations
 ; CHECK: 0 incorrect transformations
 ; CHECK: 0 failed-to-prove transformations
 ; CHECK: 0 Alive2 errors

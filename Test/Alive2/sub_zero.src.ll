@@ -85,7 +85,48 @@ define i32 @test_chained(i32 %x) {
   ret i32 %s2
 }
 
-; CHECK: 16 correct transformations
+define i64 @test_i64_none(i64 %x) {
+  %r = sub i64 %x, 0
+  ret i64 %r
+}
+
+define i64 @test_i64_nsw(i64 %x) {
+  %r = sub nsw i64 %x, 0
+  ret i64 %r
+}
+
+define i64 @test_i64_nuw(i64 %x) {
+  %r = sub nuw i64 %x, 0
+  ret i64 %r
+}
+
+define i3 @test_i3_none(i3 %x) {
+  %r = sub i3 %x, 0
+  ret i3 %r
+}
+
+define i3 @test_i3_nsw(i3 %x) {
+  %r = sub nsw i3 %x, 0
+  ret i3 %r
+}
+
+define i3 @test_i3_nuw(i3 %x) {
+  %r = sub nuw i3 %x, 0
+  ret i3 %r
+}
+
+define i2 @test_i2_nsw_nuw(i2 %x) {
+  %r = sub nsw nuw i2 %x, 0
+  ret i2 %r
+}
+
+define i1 @test_i1_nsw_nuw(i1 %x) {
+  %r = sub nsw nuw i1 %x, 0
+  ret i1 %r
+}
+
+
+; CHECK: 24 correct transformations
 ; CHECK: 0 incorrect transformations
 ; CHECK: 0 failed-to-prove transformations
 ; CHECK: 0 Alive2 errors

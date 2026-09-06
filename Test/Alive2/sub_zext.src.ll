@@ -64,7 +64,158 @@ define i32 @test_i32_flags_preserve(i32 %x, i1 %b) {
   ret i32 %r
 }
 
-; CHECK: 10 correct transformations
+define i2 @test_i2_sub_none(i2 %x, i1 %b) {
+  %z = zext i1 %b to i2
+  %r = sub i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_none_nneg(i2 %x, i1 %b) {
+  %z = zext nneg i1 %b to i2
+  %r = sub i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_nsw_nneg(i2 %x, i1 %b) {
+  %z = zext nneg i1 %b to i2
+  %r = sub nsw i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_nuw(i2 %x, i1 %b) {
+  %z = zext i1 %b to i2
+  %r = sub nuw i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_nuw_nneg(i2 %x, i1 %b) {
+  %z = zext nneg i1 %b to i2
+  %r = sub nuw i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_nsw_nuw(i2 %x, i1 %b) {
+  %z = zext i1 %b to i2
+  %r = sub nsw nuw i2 %x, %z
+  ret i2 %r
+}
+
+define i2 @test_i2_sub_nsw_nuw_nneg(i2 %x, i1 %b) {
+  %z = zext nneg i1 %b to i2
+  %r = sub nsw nuw i2 %x, %z
+  ret i2 %r
+}
+
+define i3 @test_i3_sub_none(i3 %x, i1 %b) {
+  %z = zext i1 %b to i3
+  %r = sub i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_none_nneg(i3 %x, i1 %b) {
+  %z = zext nneg i1 %b to i3
+  %r = sub i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_nsw(i3 %x, i1 %b) {
+  %z = zext i1 %b to i3
+  %r = sub nsw i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_nsw_nneg(i3 %x, i1 %b) {
+  %z = zext nneg i1 %b to i3
+  %r = sub nsw i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_nuw_nneg(i3 %x, i1 %b) {
+  %z = zext nneg i1 %b to i3
+  %r = sub nuw i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_nsw_nuw(i3 %x, i1 %b) {
+  %z = zext i1 %b to i3
+  %r = sub nsw nuw i3 %x, %z
+  ret i3 %r
+}
+
+define i3 @test_i3_sub_nsw_nuw_nneg(i3 %x, i1 %b) {
+  %z = zext nneg i1 %b to i3
+  %r = sub nsw nuw i3 %x, %z
+  ret i3 %r
+}
+
+define i32 @test_i32_sub_none_nneg(i32 %x, i1 %b) {
+  %z = zext nneg i1 %b to i32
+  %r = sub i32 %x, %z
+  ret i32 %r
+}
+
+define i32 @test_i32_sub_nsw(i32 %x, i1 %b) {
+  %z = zext i1 %b to i32
+  %r = sub nsw i32 %x, %z
+  ret i32 %r
+}
+
+define i32 @test_i32_sub_nsw_nneg(i32 %x, i1 %b) {
+  %z = zext nneg i1 %b to i32
+  %r = sub nsw i32 %x, %z
+  ret i32 %r
+}
+
+define i32 @test_i32_sub_nuw(i32 %x, i1 %b) {
+  %z = zext i1 %b to i32
+  %r = sub nuw i32 %x, %z
+  ret i32 %r
+}
+
+define i32 @test_i32_sub_nuw_nneg(i32 %x, i1 %b) {
+  %z = zext nneg i1 %b to i32
+  %r = sub nuw i32 %x, %z
+  ret i32 %r
+}
+
+define i32 @test_i32_sub_nsw_nuw_nneg(i32 %x, i1 %b) {
+  %z = zext nneg i1 %b to i32
+  %r = sub nsw nuw i32 %x, %z
+  ret i32 %r
+}
+
+define i64 @test_i64_sub_nsw_nneg(i64 %x, i1 %b) {
+  %z = zext nneg i1 %b to i64
+  %r = sub nsw i64 %x, %z
+  ret i64 %r
+}
+
+define i64 @test_i64_sub_nuw_nneg(i64 %x, i1 %b) {
+  %z = zext nneg i1 %b to i64
+  %r = sub nuw i64 %x, %z
+  ret i64 %r
+}
+
+define i64 @test_i64_sub_nsw_nuw(i64 %x, i1 %b) {
+  %z = zext i1 %b to i64
+  %r = sub nsw nuw i64 %x, %z
+  ret i64 %r
+}
+
+define i64 @test_i64_sub_nsw_nuw_nneg(i64 %x, i1 %b) {
+  %z = zext nneg i1 %b to i64
+  %r = sub nsw nuw i64 %x, %z
+  ret i64 %r
+}
+
+define i32 @test_i32_widezext_nofire(i32 %x, i8 %c) {
+  %z = zext i8 %c to i32
+  %r = sub i32 %x, %z
+  ret i32 %r
+}
+
+
+; CHECK: 35 correct transformations
 ; CHECK: 0 incorrect transformations
 ; CHECK: 0 failed-to-prove transformations
 ; CHECK: 0 Alive2 errors

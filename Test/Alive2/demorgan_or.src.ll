@@ -92,7 +92,23 @@ define i1 @test_i1_disjoint(i1 %a, i1 %b) {
   ret i1 %r
 }
 
-; CHECK: 11 correct transformations
+define i64 @test_i64_nondisjoint(i64 %a, i64 %b) {
+  %na = xor i64 %a, -1
+  %nb = xor i64 %b, -1
+  %either = or i64 %na, %nb
+  %r = xor i64 %either, -1
+  ret i64 %r
+}
+
+define i3 @test_i3_nondisjoint(i3 %a, i3 %b) {
+  %na = xor i3 %a, -1
+  %nb = xor i3 %b, -1
+  %either = or i3 %na, %nb
+  %r = xor i3 %either, -1
+  ret i3 %r
+}
+
+; CHECK: 13 correct transformations
 ; CHECK: 0 incorrect transformations
 ; CHECK: 0 failed-to-prove transformations
 ; CHECK: 0 Alive2 errors

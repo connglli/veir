@@ -65,7 +65,18 @@ define i32 @test_chained(i32 %x) {
   ret i32 %l2
 }
 
-; CHECK: 12 correct transformations
+define i64 @test_i64_exact(i64 %x) {
+  %r = lshr exact i64 %x, 0
+  ret i64 %r
+}
+
+define i3 @test_i3_exact(i3 %x) {
+  %r = lshr exact i3 %x, 0
+  ret i3 %r
+}
+
+
+; CHECK: 14 correct transformations
 ; CHECK: 0 incorrect transformations
 ; CHECK: 0 failed-to-prove transformations
 ; CHECK: 0 Alive2 errors
