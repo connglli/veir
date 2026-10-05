@@ -3,6 +3,7 @@ module
 public import Veir.Pass
 public import Veir.PatternRewriter.Basic
 import Veir.DataLayout.RISCV64
+import Veir.IR.SymbolRef
 import Veir.Interfaces.ConstantLikeInterfaces
 import Veir.Interfaces.FunctionInterfaces
 import Veir.Passes.Matching.LLVM.Basic
@@ -898,6 +899,41 @@ def alloca_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
 def alloca (rewriter : PatternRewriter OpCode) (op : OperationPtr)
     (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
   RewritePattern.fromLocalRewrite alloca_local rewriter op opInBounds
+
+/-- Resolve a global in the nearest enclosing module, without entering nested modules. -/
+private partial def lookupGlobal? (ctx : IRContext OpCode) (op : OperationPtr)
+    (name : ByteArray) : Option LLVMGlobalProperties := do
+  let parent ← op.getParentOp! ctx
+  if parent.getOpType! ctx != .builtin .module then
+    return ← lookupGlobal? ctx parent name
+  let body := parent.getRegion! ctx 0
+  let block ← (body.get! ctx).firstBlock
+  let mut candidate := (block.get! ctx).firstOp
+  while let some target := candidate do
+    if target.getOpType! ctx == .llvm .mlir__global then
+      let props := target.getProperties! ctx Llvm.mlir__global
+      if props.sym_name.value == name then return props
+    candidate := (target.get! ctx).next
+  none
+
+/-- `llvm.mlir.addressof` -> `riscv.la`, except for TLS and external weak globals. -/
+def addressof_local (ctx : WfIRContext OpCode) (op : OperationPtr) :
+    Option (WfIRContext OpCode × Option (Array OperationPtr × Array ValuePtr)) := do
+  let some (_, properties) := matchOp op ctx.raw Llvm.mlir__addressof 0 | return (ctx, none)
+  let some name := properties.global_name.getName? | return (ctx, none)
+  if let some global := lookupGlobal? ctx.raw op name then
+    -- An undefined weak symbol resolves to zero, which a PC-relative `la`
+    -- cannot always reach. Leave it until GOT-based address lowering is supported.
+    if global.isThreadLocal || global.linkage.value == "extern_weak" then return (ctx, none)
+  let (ctx, laOp) ← WfRewriter.createOp! ctx Riscv.la #[RegisterType.mk]
+      #[] #[] #[] (RISCVSymbolProperties.mk properties.global_name) none
+  let (ctx, castBackOp) ← replaceWithRegLocal ctx op (laOp.getResult 0)
+  some (ctx, some (#[laOp, castBackOp], #[castBackOp.getResult 0]))
+
+/-- `llvm.mlir.addressof` -> `riscv.la` and a cast back to the pointer type. -/
+def addressof (rewriter : PatternRewriter OpCode) (op : OperationPtr)
+    (opInBounds : op.InBounds rewriter.ctx.raw) : Option (PatternRewriter OpCode) :=
+  RewritePattern.fromLocalRewrite addressof_local rewriter op opInBounds
 
 /--
   Split a load/store address into a base register operand and a signed 12-bit
@@ -1802,7 +1838,7 @@ def ISelPass.impl (ctx : WfIRContext OpCode) (op : OperationPtr) (_ : op.InBound
   /- Main loop: the existing per-op lowerings. -/
   let pattern := RewritePattern.GreedyRewritePattern #[selectCzeroeqz, selectCzeronez, selectGeneral,
     ctlz32.run, ctlz64.run, cttz32.run, cttz64.run, ctpop32.run, ctpop64.run, bswap, bitreverse,
-    constant, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
+    constant, addressof, add32.run, add64.run, and.run, ashr, icmp, or.run, xor32.run, xor64.run, mul32.run, mul64.run,
     sdiv32.run, sdiv64.run, udiv32.run, udiv64.run, srem32.run, srem64.run, urem32.run, urem64.run,
     sext32.run, sext16.run, sext8.run, zext32.run, zext16.run, zext8.run, trunc, shl, lshr,
     sub64.run, sub32.run, bitcast, load, getelementptr, store,
